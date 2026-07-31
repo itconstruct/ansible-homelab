@@ -1,0 +1,11 @@
+# Never commit the age private key or anything in this folder
+.secrets/
+
+# Never commit decrypted secrets
+group_vars/**/secrets.yaml
+group_vars/**/secrets.yml
+
+# Raw ansible fact-gathering dumps - contain sensitive host detail
+# (MAC addresses, SSH host key fingerprints, disk/mem layout).
+# Summary findings are captured in ansible-bootstrap.md instead.
+facts-baseline/

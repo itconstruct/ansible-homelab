@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: check-sops-encrypted
+        name: Verify SOPS files are encrypted before commit
+        entry: scripts/check-sops-encrypted.sh
+        language: script
+        files: '(^|/)[^./][^/]*\.sops\.ya?ml$'
