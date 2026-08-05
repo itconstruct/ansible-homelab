@@ -1,0 +1,12 @@
+---
+# playbooks/k8s-tooling.yml
+# Run with: ansible-playbook playbooks/k8s-tooling.yml --limit devops-test
+# Do NOT run against devops-prod until it's rebuilt/reconciled (see Open Items
+# in ansible-bootstrap.md and secrets-sops-age.md).
+
+- name: Install Kubernetes/Talos tooling on devops hosts
+  hosts: devops
+  become: true
+  roles:
+    - k8s_tooling
+

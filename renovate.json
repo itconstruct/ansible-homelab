@@ -1,0 +1,14 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track kubectl/talosctl versions pinned in host_vars/*.yml",
+      "managerFilePatterns": ["/^host_vars/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+?) depName=(?<depName>[^\\s]+?) packageName=(?<packageName>[^\\s]+?)(?: extractVersion=(?<extractVersion>[^\\s]+?))?\\s+\\w+_version:\\s*[\"']?(?<currentValue>[\\w.\\-]+)[\"']?"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+---
+# roles/k8s_tooling/defaults/main.yml
+#
+# IMPORTANT: kubectl and talosctl versions are deliberately NOT defaulted to
+# "latest" here. Both need to match (or stay within the supported skew of)
+# the actual cluster's Kubernetes and Talos versions.
+#
+# These are set per-host in host_vars/<hostname>.yml, NOT here and NOT in
+# group_vars/all - devops-test and devops-prod manage DIFFERENT clusters
+# (test-cluster vs cluster) which will legitimately run different versions.
+# See host_vars/devops-test.yml for the working example.
+
+kubernetes_apt_channel: ""           # e.g. "v1.36"  - REQUIRED per-host, no safe default
+kubectl_version: ""                  # e.g. "1.36.2" (bare semver - apt packaging suffix resolved at runtime)
+talosctl_version: ""                 # e.g. "1.13.5" - REQUIRED per-host, no safe default
+flux_version: ""                     # e.g. "2.9.3" - REQUIRED per-host, no safe default (CLI version - ideally matches the Flux controller version bootstrapped on that host's cluster)

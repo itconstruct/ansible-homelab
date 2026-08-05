@@ -1,0 +1,10 @@
+kubernetes_apt_channel: "v1.36"
+
+# renovate: datasource=github-releases depName=kubernetes packageName=kubernetes/kubernetes extractVersion=^v(?<version>.*)$
+kubectl_version: "1.36.2"
+
+# renovate: datasource=github-releases depName=talosctl packageName=siderolabs/talos extractVersion=^v(?<version>.*)$
+talosctl_version: "1.13.5"
+
+# renovate: datasource=github-releases depName=flux packageName=fluxcd/flux2 extractVersion=^v(?<version>.*)$
+flux_version: "2.9.3"

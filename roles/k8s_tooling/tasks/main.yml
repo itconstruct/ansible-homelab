@@ -1,0 +1,80 @@
+---
+# roles/k8s_tooling/tasks/main.yml
+# Installs kubectl, helm, and talosctl on the devops control host.
+# kubectl and helm: official apt repos (consistent with apt-preferred policy).
+# talosctl: no apt repo exists upstream - official binary install is the
+# documented exception here, same category as the earlier sops install.
+
+- name: Install prerequisite packages for adding apt repos
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+
+# --- kubectl ---------------------------------------------------------------
+
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Kubernetes apt signing key
+  ansible.builtin.get_url:
+    url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_apt_channel }}/deb/Release.key"
+    dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+    mode: "0644"
+
+- name: Add Kubernetes apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/{{ kubernetes_apt_channel }}/deb/ /"
+    filename: kubernetes
+    state: present
+
+- name: Resolve exact apt package version for the pinned kubectl release
+  ansible.builtin.shell:
+    cmd: "apt-cache madison kubectl | awk '{print $3}' | grep '^{{ kubectl_version }}-' | sort -V | tail -n1"
+  register: kubectl_apt_version
+  changed_when: false
+  failed_when: kubectl_apt_version.stdout == ""
+
+- name: Install kubectl (exact resolved apt version)
+  ansible.builtin.apt:
+    name: "kubectl={{ kubectl_apt_version.stdout }}"
+    state: present
+
+- name: Hold kubectl at installed version (avoid surprise upgrades vs cluster API version)
+  ansible.builtin.dpkg_selections:
+    name: kubectl
+    selection: hold
+
+# --- talosctl (documented apt exception - no upstream apt repo exists) ------
+
+- name: Check current talosctl version, if installed
+  ansible.builtin.command: talosctl version --client --short
+  register: talosctl_current
+  changed_when: false
+  failed_when: false
+
+- name: Download talosctl binary (pinned version - never 'latest', for reproducibility)
+  ansible.builtin.get_url:
+    url: "https://github.com/siderolabs/talos/releases/download/v{{ talosctl_version }}/talosctl-linux-amd64"
+    dest: /usr/local/bin/talosctl
+    mode: "0755"
+  when: >
+    talosctl_current.rc != 0 or
+    talosctl_version not in talosctl_current.stdout
+
+- name: Verify talosctl is executable and reports expected version
+  ansible.builtin.command: talosctl version --client --short
+  register: talosctl_verify
+  changed_when: false
+
+- name: Assert talosctl version matches expected
+  ansible.builtin.assert:
+    that:
+      - talosctl_version in talosctl_verify.stdout
+    fail_msg: "talosctl version mismatch after install - expected {{ talosctl_version }}"
