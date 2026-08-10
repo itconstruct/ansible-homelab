@@ -7,4 +7,4 @@ kubectl_version: "1.36.2"
 talosctl_version: "1.13.5"
 
 # renovate: datasource=github-releases depName=flux packageName=fluxcd/flux2 extractVersion=^v(?<version>.*)$
-flux_version: "2.9.3"
+flux_version: "2.9.4"
