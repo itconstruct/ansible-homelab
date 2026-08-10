@@ -1,9 +1,14 @@
 ---
 # roles/k8s_tooling/tasks/main.yml
-# Installs kubectl, helm, and talosctl on the devops control host.
-# kubectl and helm: official apt repos (consistent with apt-preferred policy).
-# talosctl: no apt repo exists upstream - official binary install is the
-# documented exception here, same category as the earlier sops install.
+# Installs kubectl, talosctl, and flux on the devops control host.
+# kubectl: official apt repo (consistent with apt-preferred policy).
+# talosctl, flux: no apt repo exists upstream - official binary/tarball
+# install is the documented exception here, same category as the earlier
+# sops install.
+#
+# Helm removed (see k8s-tooling-role doc revision): Flux reconciles
+# HelmReleases cluster-side via GitOps, so the CLI isn't needed on the
+# control host for the current workflow.
 
 - name: Install prerequisite packages for adding apt repos
   ansible.builtin.apt:
@@ -78,3 +83,70 @@
     that:
       - talosctl_version in talosctl_verify.stdout
     fail_msg: "talosctl version mismatch after install - expected {{ talosctl_version }}"
+
+# --- flux (documented apt exception - ships as a release tarball, no apt repo) --
+
+- name: Check current flux version, if installed
+  ansible.builtin.command: flux --version
+  register: flux_current
+  changed_when: false
+  failed_when: false
+
+- name: Download flux release tarball (pinned version - never 'latest', for reproducibility)
+  ansible.builtin.get_url:
+    url: "https://github.com/fluxcd/flux2/releases/download/v{{ flux_version }}/flux_{{ flux_version }}_linux_amd64.tar.gz"
+    dest: "/tmp/flux_{{ flux_version }}_linux_amd64.tar.gz"
+    mode: "0644"
+  when: >
+    flux_current.rc != 0 or
+    flux_version not in flux_current.stdout
+
+- name: Create temporary extraction directory for the flux tarball
+  ansible.builtin.file:
+    path: /tmp/flux-extract
+    state: directory
+    mode: "0755"
+  when: >
+    flux_current.rc != 0 or
+    flux_version not in flux_current.stdout
+
+- name: Extract flux tarball
+  ansible.builtin.unarchive:
+    src: "/tmp/flux_{{ flux_version }}_linux_amd64.tar.gz"
+    dest: /tmp/flux-extract
+    remote_src: true
+  when: >
+    flux_current.rc != 0 or
+    flux_version not in flux_current.stdout
+
+- name: Install flux binary to /usr/local/bin
+  ansible.builtin.copy:
+    src: /tmp/flux-extract/flux
+    dest: /usr/local/bin/flux
+    mode: "0755"
+    remote_src: true
+  when: >
+    flux_current.rc != 0 or
+    flux_version not in flux_current.stdout
+
+- name: Clean up flux download/extraction temp files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/flux-extract
+    - "/tmp/flux_{{ flux_version }}_linux_amd64.tar.gz"
+  when: >
+    flux_current.rc != 0 or
+    flux_version not in flux_current.stdout
+
+- name: Verify flux is executable and reports expected version
+  ansible.builtin.command: flux --version
+  register: flux_verify
+  changed_when: false
+
+- name: Assert flux version matches expected
+  ansible.builtin.assert:
+    that:
+      - flux_version in flux_verify.stdout
+    fail_msg: "flux version mismatch after install - expected {{ flux_version }}"
