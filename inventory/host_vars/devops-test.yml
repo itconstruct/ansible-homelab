@@ -1,7 +1,7 @@
 kubernetes_apt_channel: "v1.36"
 
 # renovate: datasource=github-releases depName=kubernetes packageName=kubernetes/kubernetes extractVersion=^v(?<version>.*)$
-kubectl_version: "1.36.2"
+kubectl_version: "1.37.0"
 
 # renovate: datasource=github-releases depName=talosctl packageName=siderolabs/talos extractVersion=^v(?<version>.*)$
 talosctl_version: "1.13.5"
