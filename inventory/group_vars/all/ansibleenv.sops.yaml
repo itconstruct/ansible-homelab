@@ -1,4 +1,3 @@
-ansible_become_pass: ENC[AES256_GCM,data:Nys2GI5CN7nhvJiM,iv:9oQ0bpxW3bDCDHnTWnLD5yrgi+F0eKRO9Hf63xxHrDI=,tag:CIId0GJ8IfiNvMtH4IeU9g==,type:str]
 devops_prod_ip: ENC[AES256_GCM,data:zMHzoNMW7Hdtg+mMrA==,iv:Yc4aNJtKPFnmQ6vsGVLiauB0hTM2fr06DvpF/WD/Zps=,tag:UZi4UyTznFh9iaDToXCENQ==,type:str]
 devops_test_ip: ENC[AES256_GCM,data:ZZCYalS+7hzcyxSfIQ==,iv:zfIDkmIfQLeHkeagkie/MJhMUnxIj4g2gUJtD1Bs40Q=,tag:qWCXdQ+jS7YoMZf3SUsjvg==,type:str]
 homelab_subnet: ENC[AES256_GCM,data:9f6+mFvzEon11/XrpZc=,iv:EbxCol55d1E0lwj2X1e0yEL0hp2KY5dHzj7opJnggMM=,tag:9YyByHOczA5bwRF0bZecDw==,type:str]
@@ -14,7 +13,7 @@ sops:
             +c+He8+VYRZj0i8fuIk8QTW7hGC3HoRijWkeMioroIexEHNTpjELmA==
             -----END AGE ENCRYPTED FILE-----
           recipient: age1smedwh0yuxgyv5w4n6pj27cmxuh7ulu6aacu7gasphx3u7sjs46smuexua
-    lastmodified: "2026-08-09T12:43:22Z"
-    mac: ENC[AES256_GCM,data:tBNNomcFjc0WP/hiin3zQ65fKi8PKGy77G6jzvv2GI6J/zPH8hnT9NZ15QMZ4a8ATFvYY8zvsJhsFCGxsikn98SlvQ96tidO09BGHVXDDMhHRRb5jKCEyl4bpj7P4+/QGJiuoKhn5MmA4izkSpsFh5c5uO0GmfRXFoWkSAjKZlo=,iv:cM7ZCRfguCd8+p9Tb8dDZx7y/LFp36mRXMa/URyNjoM=,tag:SBvGMxFtU22qEjDd8o+QNA==,type:str]
+    lastmodified: "2026-09-29T11:09:42Z"
+    mac: ENC[AES256_GCM,data:+uZRvzpwO2o9t1RiDow3Peh6eAIaM7HjSlSPjpLSWMcWqwuFaHJvPUEId/tI70cjIRuAEFbJ7TzmXWY1zDsp12eQYLcpvC3QcKztwzUmbkWHl8iW8iuAA6Rs22YZEWR9a2qfKh5/+2kxoLjU2IlXYgrNTqhOtRCHvPrEqGA78yc=,iv:VotzJSM+6gM4emPtQmaVykK1Bs8qy2TSMzA9wT5qxuU=,tag:Brtugf1XRxK2l7bqwAA7vg==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3
