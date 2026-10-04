@@ -1,0 +1,43 @@
+---
+# Path: ~/ansible-homelab/roles/mdns_alias/tasks/main.yml
+- name: Install Avahi
+  ansible.builtin.apt:
+    name:
+      - avahi-daemon
+      - avahi-utils
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure avahi-daemon is running
+  ansible.builtin.systemd_service:
+    name: avahi-daemon
+    enabled: true
+    state: started
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Deploy mDNS alias units
+  ansible.builtin.template:
+    src: avahi-alias.service.j2
+    dest: "/etc/systemd/system/avahi-alias-{{ item.name | replace('.', '-') }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ mdns_aliases }}"
+  notify: Restart mDNS aliases
+
+- name: Enable and start mDNS alias units
+  ansible.builtin.systemd_service:
+    name: "avahi-alias-{{ item.name | replace('.', '-') }}.service"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ mdns_aliases }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Allow mDNS through UFW (if UFW is installed)
+  community.general.ufw:
+    rule: allow
+    port: "5353"
+    proto: udp
+  when: "'ufw' in ansible_facts.packages | default({})"

@@ -1,0 +1,5 @@
+---
+# Repos that get the pre-commit git hook installed.
+# Skipped on hosts where the path or .pre-commit-config.yaml doesn't exist.
+precommit_repos:
+  - "{{ ansible_facts['env']['HOME'] }}/coding_projects/guides"

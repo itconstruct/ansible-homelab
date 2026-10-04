@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+{# Path: ~/ansible-homelab/roles/mdns_alias/templates/avahi-alias.service.j2 #}
+{# Rendered to: /etc/systemd/system/avahi-alias-<name>.service on devops-prod #}
+[Unit]
+Description=Publish {{ item.name }} -> {{ item.ip }} via mDNS
+After=avahi-daemon.service network-online.target
+Requires=avahi-daemon.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# -R: no reverse PTR record (the IP isn't this host's address)
+ExecStart=/usr/bin/avahi-publish -a -R {{ item.name }} {{ item.ip }}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

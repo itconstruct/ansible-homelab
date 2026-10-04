@@ -1,0 +1,74 @@
+---
+# Installs git and pre-commit on a devops host so repos can run secret
+# scanning (gitleaks) before every commit.
+#
+# pre-commit is installed with pipx for the connecting user, not system-wide:
+# Ubuntu blocks system-wide pip installs (externally-managed Python) and pipx
+# keeps each tool in its own venv. Binaries land in ~/.local/bin, which the
+# default Ubuntu ~/.profile adds to PATH at the next login.
+#
+# pipx is called directly rather than through community.general.pipx because
+# that module needs pipx >= 1.7.0 and Ubuntu's packaged version can be older.
+
+- name: Install git and pipx
+  ansible.builtin.apt:
+    name:
+      - git
+      - pipx
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: List tools already installed with pipx
+  ansible.builtin.command:
+    cmd: pipx list --short
+  register: precommit_pipx_list
+  changed_when: false
+  check_mode: false
+
+- name: Install pre-commit with pipx
+  ansible.builtin.command:
+    cmd: "pipx install {{ ('pre-commit==' ~ precommit_version) if precommit_version else 'pre-commit' }}"
+  when: precommit_pipx_list.stdout_lines | select('match', '^pre-commit ') | list | length == 0
+  changed_when: true
+
+- name: Upgrade pre-commit with pipx
+  ansible.builtin.command:
+    cmd: pipx upgrade pre-commit
+  register: precommit_upgrade_out
+  when: precommit_state == 'latest'
+  changed_when: "'upgraded package' in precommit_upgrade_out.stdout"
+
+- name: Check which repos have a pre-commit config
+  ansible.builtin.stat:
+    path: "{{ item }}/.pre-commit-config.yaml"
+  loop: "{{ precommit_repos }}"
+  register: precommit_config_stat
+
+- name: Install the git hook in each configured repo
+  ansible.builtin.command:
+    cmd: "{{ ansible_facts['env']['HOME'] }}/.local/bin/pre-commit install"
+    chdir: "{{ item.item }}"
+    creates: "{{ item.item }}/.git/hooks/pre-commit"
+  loop: "{{ precommit_config_stat.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.stat.exists
+
+- name: Report pre-commit version
+  ansible.builtin.command:
+    cmd: "{{ ansible_facts['env']['HOME'] }}/.local/bin/pre-commit --version"
+  register: precommit_version_out
+  changed_when: false
+  check_mode: false
+
+- name: Show pre-commit version
+  ansible.builtin.debug:
+    msg: "{{ precommit_version_out.stdout }}"
+
+- name: Put pipx binaries on PATH for future shells
+  ansible.builtin.command:
+    cmd: pipx ensurepath
+  register: precommit_ensurepath
+  changed_when: "'Success! Added' in precommit_ensurepath.stdout"

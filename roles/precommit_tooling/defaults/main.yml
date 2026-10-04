@@ -1,0 +1,10 @@
+---
+# present = install if missing, latest = upgrade on every run
+precommit_state: present
+
+# Empty = whatever pipx resolves at install time. Set e.g. "4.0.1" to pin.
+precommit_version: ""
+
+# Absolute paths of repos that should get `pre-commit install` run in them.
+# Only repos that contain a .pre-commit-config.yaml are touched.
+precommit_repos: []

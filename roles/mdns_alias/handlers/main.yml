@@ -1,0 +1,8 @@
+---
+# Path: ~/ansible-homelab/roles/mdns_alias/handlers/main.yml
+- name: Restart mDNS aliases
+  ansible.builtin.systemd_service:
+    name: "avahi-alias-{{ item.name | replace('.', '-') }}.service"
+    state: restarted
+    daemon_reload: true
+  loop: "{{ mdns_aliases }}"

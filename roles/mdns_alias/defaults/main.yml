@@ -1,0 +1,6 @@
+---
+# Path: ~/ansible-homelab/roles/mdns_alias/defaults/main.yml
+# One entry per .local alias to publish on the LAN
+mdns_aliases:
+  - name: escapepod.local
+    ip: 192.168.1.201 # wire-pod MetalLB VIP (WIREPOD_IP)

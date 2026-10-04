@@ -1,0 +1,19 @@
+---
+# Path: ~/ansible-homelab/roles/mdns_client/tasks/main.yml
+# mDNS listener/test tooling only - never publishes aliases.
+- name: Install mDNS client tooling
+  ansible.builtin.apt:
+    name:
+      - avahi-daemon # required by avahi-resolve/avahi-browse
+      - avahi-utils # avahi-resolve, avahi-browse
+      - libnss-mdns # lets getent/curl/ping resolve *.local
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure avahi-daemon is running
+  ansible.builtin.systemd_service:
+    name: avahi-daemon
+    enabled: true
+    state: started
+  ignore_errors: "{{ ansible_check_mode }}"

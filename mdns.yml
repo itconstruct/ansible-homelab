@@ -1,0 +1,16 @@
+---
+# Path: ~/ansible-homelab/mdns.yml
+- name: Publish mDNS aliases for cluster services
+  hosts: devops-prod
+  become: true
+  pre_tasks:
+    - name: Gather package facts (for the UFW check)
+      ansible.builtin.package_facts:
+  roles:
+    - mdns_alias
+
+- name: mDNS client tooling for testing
+  hosts: devops-test
+  become: true
+  roles:
+    - mdns_client

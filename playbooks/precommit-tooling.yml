@@ -1,0 +1,17 @@
+---
+# Usage (validate on devops-test first, then roll to devops-prod):
+#   ansible-playbook playbooks/precommit-tooling.yml --limit devops-test --check --diff -K
+#   ansible-playbook playbooks/precommit-tooling.yml --limit devops-test -K
+#   ansible-playbook playbooks/precommit-tooling.yml --limit devops-prod -K
+#
+# -K prompts for the sudo password (only the apt step needs it).
+#
+# Do NOT add `become: true` at play level: pre-commit must install for the
+# connecting user (ace / ubuntu), not root. The role escalates only for apt.
+#
+# Repos to hook are set per group in inventory/group_vars (precommit_repos).
+- name: Developer tooling - pre-commit secret scanning
+  hosts: devops
+  gather_facts: true
+  roles:
+    - precommit_tooling
