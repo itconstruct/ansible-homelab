@@ -8,3 +8,9 @@ precommit_version: ""
 # Absolute paths of repos that should get `pre-commit install` run in them.
 # Only repos that contain a .pre-commit-config.yaml are touched.
 precommit_repos: []
+
+# GitHub CLI (gh) - lives here with git because it's part of the same repo workflow
+# (branch -> PR -> checks -> merge). Installed from GitHub's official apt repo.
+gh_install: true
+# present = install if missing, latest = upgrade on every run
+gh_state: present

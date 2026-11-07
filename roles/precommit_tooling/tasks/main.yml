@@ -1,6 +1,12 @@
 ---
-# Installs git and pre-commit on a devops host so repos can run secret
-# scanning (gitleaks) before every commit.
+# Installs git, the GitHub CLI (gh) and pre-commit on a devops host: git and gh
+# for the branch -> PR -> checks -> merge workflow, pre-commit so repos can run
+# secret scanning (gitleaks) before every commit.
+#
+# gh comes from GitHub's official apt repo (consistent with the apt-preferred
+# policy). Authentication is NOT automated - run `gh auth login` once per host
+# as the connecting user (choose SSH, browser/device flow) so no token is stored
+# in this repo.
 #
 # pre-commit is installed with pipx for the connecting user, not system-wide:
 # Ubuntu blocks system-wide pip installs (externally-managed Python) and pipx
@@ -19,6 +25,70 @@
     update_cache: true
     cache_valid_time: 3600
   become: true
+
+# --- GitHub CLI (gh) --------------------------------------------------------
+
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+  become: true
+  when: gh_install | bool
+
+- name: Add GitHub CLI apt signing key
+  ansible.builtin.get_url:
+    url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    dest: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    mode: "0644"
+  become: true
+  when: gh_install | bool
+
+- name: Add GitHub CLI apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ ansible_facts['architecture'] | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}
+      signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg]
+      https://cli.github.com/packages stable main
+    filename: github-cli
+    state: present
+  become: true
+  when: gh_install | bool
+
+- name: Install GitHub CLI
+  ansible.builtin.apt:
+    name: gh
+    state: "{{ gh_state }}"
+    update_cache: true
+  become: true
+  when: gh_install | bool
+
+- name: Report gh version
+  ansible.builtin.command:
+    cmd: gh --version
+  register: gh_version_out
+  changed_when: false
+  check_mode: false
+  when: gh_install | bool and not ansible_check_mode   # gh may not exist yet in --check
+
+- name: Check gh authentication for the connecting user
+  ansible.builtin.command:
+    cmd: gh auth status
+  register: gh_auth_out
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: gh_install | bool and not ansible_check_mode   # gh may not exist yet in --check
+
+- name: Show gh version and remind about one-time login
+  ansible.builtin.debug:
+    msg: >-
+      {{ gh_version_out.stdout_lines | first }} -
+      {{ 'authenticated' if gh_auth_out.rc == 0
+         else 'NOT authenticated: run `gh auth login` (SSH, browser/device flow) once on this host' }}
+  when: gh_install | bool and not ansible_check_mode   # gh may not exist yet in --check
+
+# --- pre-commit --------------------------------------------------------------
 
 - name: List tools already installed with pipx
   ansible.builtin.command:
