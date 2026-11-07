@@ -6,9 +6,9 @@
 # install is the documented exception here, same category as the earlier
 # sops install.
 #
-# Helm removed (see k8s-tooling-role doc revision): Flux reconciles
-# HelmReleases cluster-side via GitOps, so the CLI isn't needed on the
-# control host for the current workflow.
+# Helm is not installed here: it lives in its own role (helm_tooling) with the
+# helm-diff plugin, so it can be rolled to devops-prod without touching the
+# cluster-coupled kubectl/talosctl/flux pins.
 
 - name: Install prerequisite packages for adding apt repos
   ansible.builtin.apt:

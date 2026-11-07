@@ -1,0 +1,17 @@
+---
+# roles/helm_tooling/defaults/main.yml
+#
+# Versions are deliberately NOT defaulted here - set them in inventory
+# (inventory/group_vars/devops/helm.yml), where Renovate tracks them.
+# Helm is a client tool and isn't coupled to a cluster version the way
+# kubectl/talosctl/flux are, so one version for the whole devops group is fine.
+
+helm_version: ""          # e.g. "4.3.1"   - REQUIRED (bare semver, no leading v)
+helm_diff_version: ""     # e.g. "3.15.15" - REQUIRED (bare semver, no leading v)
+
+# helm-diff maintainer release key. Published in every helm-diff release note
+# and the project README; the role refuses to install if the downloaded key
+# doesn't match this fingerprint.
+helm_diff_gpg_fingerprint: "C5645EF47482257A1F806D2BEA17A2A206AFF8CD"
+
+helm_arch: "{{ ansible_facts['architecture'] | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}"

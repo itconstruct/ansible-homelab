@@ -1,0 +1,196 @@
+---
+# roles/helm_tooling/tasks/main.yml
+# Installs the Helm CLI and the helm-diff plugin on a devops host, so chart
+# changes can be rendered and diffed locally before they are merged
+# (helm template / helm diff upgrade), instead of only after Flux applies them.
+#
+# helm: official release tarball from get.helm.sh, sha256-verified. The Helm
+# project lists the Debian apt repo as community-maintained and "not considered
+# trusted", so this is a documented apt exception (same category as talosctl
+# and flux in k8s_tooling).
+#
+# helm-diff: Helm 4 verifies plugin provenance by default. The plugin is
+# installed from the versioned release tarball plus its signed .prov file,
+# checked against the maintainer key, whose fingerprint is pinned in defaults.
+# Plugins are per-user (~/.local/share/helm/plugins), so those tasks run as the
+# connecting user; only the binary install and apt escalate.
+
+- name: Require pinned versions
+  ansible.builtin.assert:
+    that:
+      - helm_version | length > 0
+      - helm_diff_version | length > 0
+    fail_msg: "Set helm_version and helm_diff_version in inventory/group_vars/devops/helm.yml"
+
+- name: Install gnupg (needed to check the helm-diff signing key)
+  ansible.builtin.apt:
+    name: gnupg
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+# --- helm binary -------------------------------------------------------------
+
+- name: Check current helm version, if installed
+  ansible.builtin.command: helm version --short
+  register: helm_current
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Decide whether helm needs installing
+  ansible.builtin.set_fact:
+    helm_needs_install: "{{ helm_current.rc != 0 or not helm_current.stdout.startswith('v' ~ helm_version ~ '+') }}"
+
+- name: Download helm release tarball (sha256-verified)
+  ansible.builtin.get_url:
+    url: "https://get.helm.sh/helm-v{{ helm_version }}-linux-{{ helm_arch }}.tar.gz"
+    dest: "/tmp/helm-v{{ helm_version }}-linux-{{ helm_arch }}.tar.gz"
+    checksum: "sha256:https://get.helm.sh/helm-v{{ helm_version }}-linux-{{ helm_arch }}.tar.gz.sha256sum"
+    mode: "0644"
+  become: true
+  when: helm_needs_install
+
+- name: Create temporary extraction directory for the helm tarball
+  ansible.builtin.file:
+    path: /tmp/helm-extract
+    state: directory
+    mode: "0755"
+  become: true
+  when: helm_needs_install
+
+- name: Extract helm tarball
+  ansible.builtin.unarchive:
+    src: "/tmp/helm-v{{ helm_version }}-linux-{{ helm_arch }}.tar.gz"
+    dest: /tmp/helm-extract
+    remote_src: true
+  become: true
+  when: helm_needs_install and not ansible_check_mode   # tarball isn't downloaded in --check
+
+- name: Install helm binary to /usr/local/bin
+  ansible.builtin.copy:
+    src: "/tmp/helm-extract/linux-{{ helm_arch }}/helm"
+    dest: /usr/local/bin/helm
+    mode: "0755"
+    remote_src: true
+  become: true
+  when: helm_needs_install and not ansible_check_mode
+
+- name: Clean up helm download/extraction temp files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/helm-extract
+    - "/tmp/helm-v{{ helm_version }}-linux-{{ helm_arch }}.tar.gz"
+  become: true
+  when: helm_needs_install
+
+- name: Verify helm reports the expected version
+  ansible.builtin.command: helm version --short
+  register: helm_verify
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Assert helm version matches expected
+  ansible.builtin.assert:
+    that:
+      - helm_verify.stdout.startswith('v' ~ helm_version ~ '+')
+    fail_msg: "helm version mismatch after install - expected v{{ helm_version }}, got {{ helm_verify.stdout }}"
+  when: not ansible_check_mode
+
+# --- helm-diff plugin (per user, provenance-verified) -------------------------
+
+- name: List installed helm plugins
+  ansible.builtin.command: helm plugin list
+  register: helm_plugins
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Decide whether helm-diff needs installing
+  ansible.builtin.set_fact:
+    helm_diff_present: "{{ helm_plugins.stdout_lines | default([]) | select('match', '^diff\\s') | list | length > 0 }}"
+    helm_diff_current: >-
+      {{ helm_plugins.stdout_lines | default([])
+         | select('match', '^diff\\s+' ~ (helm_diff_version | regex_escape) ~ '(\\s|$)') | list | length > 0 }}
+  when: not ansible_check_mode
+
+- name: Install or update helm-diff
+  when: not ansible_check_mode and not (helm_diff_current | bool)
+  block:
+    - name: Create a temporary directory for the helm-diff download
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: helm-diff-
+      register: helm_diff_tmp
+
+    - name: Download the helm-diff maintainer public key
+      ansible.builtin.get_url:
+        url: https://github.com/databus23.gpg
+        dest: "{{ helm_diff_tmp.path }}/key.asc"
+        mode: "0644"
+
+    - name: Read the key fingerprints
+      ansible.builtin.command:
+        cmd: gpg --show-keys --with-colons "{{ helm_diff_tmp.path }}/key.asc"
+      register: helm_diff_key
+      changed_when: false
+
+    - name: Refuse to continue unless the pinned maintainer key is present
+      ansible.builtin.assert:
+        that:
+          - helm_diff_gpg_fingerprint in (helm_diff_key.stdout_lines | select('match', '^fpr:') | map('split', ':') | map(attribute=9) | list)
+        fail_msg: "helm-diff signing key fingerprint mismatch - expected {{ helm_diff_gpg_fingerprint }}; not installing"
+
+    - name: Build a binary keyring Helm can read
+      ansible.builtin.command:
+        cmd: gpg --dearmor --output "{{ helm_diff_tmp.path }}/keyring.gpg" "{{ helm_diff_tmp.path }}/key.asc"
+        creates: "{{ helm_diff_tmp.path }}/keyring.gpg"
+
+    - name: Download the versioned helm-diff release tarball and its signed provenance file
+      ansible.builtin.get_url:
+        url: "https://github.com/databus23/helm-diff/releases/download/v{{ helm_diff_version }}/{{ item }}"
+        dest: "{{ helm_diff_tmp.path }}/{{ item }}"
+        mode: "0644"
+      loop:
+        - "diff-{{ helm_diff_version }}-linux-{{ helm_arch }}.tgz"
+        - "diff-{{ helm_diff_version }}-linux-{{ helm_arch }}.tgz.prov"
+
+    - name: Remove the existing helm-diff version
+      ansible.builtin.command:
+        cmd: helm plugin uninstall diff
+      when: helm_diff_present | bool
+      changed_when: true
+
+    - name: Install helm-diff (Helm 4 verifies the .prov signature against the keyring)
+      ansible.builtin.command:
+        cmd: >-
+          helm plugin install
+          "{{ helm_diff_tmp.path }}/diff-{{ helm_diff_version }}-linux-{{ helm_arch }}.tgz"
+          --keyring "{{ helm_diff_tmp.path }}/keyring.gpg"
+      changed_when: true
+
+  always:
+    - name: Remove the helm-diff temporary directory
+      ansible.builtin.file:
+        path: "{{ helm_diff_tmp.path }}"
+        state: absent
+      when: helm_diff_tmp.path is defined
+
+- name: Verify helm-diff reports the expected version
+  ansible.builtin.command: helm diff version
+  register: helm_diff_verify
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Assert helm-diff version matches expected
+  ansible.builtin.assert:
+    that:
+      - helm_diff_version in helm_diff_verify.stdout
+    fail_msg: "helm-diff version mismatch - expected {{ helm_diff_version }}, got {{ helm_diff_verify.stdout }}"
+  when: not ansible_check_mode

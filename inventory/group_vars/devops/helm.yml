@@ -1,0 +1,9 @@
+---
+# Helm is a client tool, so one version for the whole devops group.
+# Both pins are tracked by Renovate (see renovate.json).
+
+# renovate: datasource=github-releases depName=helm packageName=helm/helm extractVersion=^v(?<version>.*)$
+helm_version: "4.3.1"
+
+# renovate: datasource=github-releases depName=helm-diff packageName=databus23/helm-diff extractVersion=^v(?<version>.*)$
+helm_diff_version: "3.15.15"
